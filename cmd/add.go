@@ -14,6 +14,7 @@ import (
 	"github.com/shawnpana/aurl/internal/config"
 	"github.com/shawnpana/aurl/internal/graphql"
 	"github.com/shawnpana/aurl/internal/openapi"
+	"github.com/shawnpana/aurl/internal/urlutil"
 	"github.com/spf13/cobra"
 )
 
@@ -52,6 +53,9 @@ func runAdd(cmd *cobra.Command, args []string) error {
 	var err error
 
 	if strings.HasPrefix(source, "http://") || strings.HasPrefix(source, "https://") {
+		if err := urlutil.ValidatePublicURL(source); err != nil {
+			return fmt.Errorf("refusing to fetch spec: %w", err)
+		}
 		data, err = fetchSpec(source)
 	} else {
 		data, err = os.ReadFile(source)
