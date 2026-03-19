@@ -7,6 +7,8 @@ import (
 	"io"
 	"net/http"
 	"time"
+
+	"github.com/shawnpana/aurl/internal/urlutil"
 )
 
 const introspectionQuery = `{
@@ -64,6 +66,10 @@ fragment TypeRef on __Type {
 
 // Introspect sends the introspection query to a GraphQL endpoint and returns the raw result.
 func Introspect(endpoint string, headers map[string]string) (map[string]any, error) {
+	if err := urlutil.ValidatePublicURL(endpoint); err != nil {
+		return nil, fmt.Errorf("refusing to connect to endpoint: %w", err)
+	}
+
 	body, err := json.Marshal(map[string]string{"query": introspectionQuery})
 	if err != nil {
 		return nil, err
