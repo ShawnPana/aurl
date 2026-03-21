@@ -32,11 +32,8 @@ type APIEntry struct {
 }
 
 func ConfigDir() string {
-	if dir := os.Getenv("XDG_CONFIG_HOME"); dir != "" {
-		return filepath.Join(dir, "aurl")
-	}
 	home, _ := os.UserHomeDir()
-	return filepath.Join(home, ".config", "aurl")
+	return filepath.Join(home, ".aurl")
 }
 
 func APIsDir() string {

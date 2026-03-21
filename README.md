@@ -238,7 +238,7 @@ aurl supports all standard OpenAPI security schemes:
 | `http` + `basic` | Prompts for username + password, encodes as Basic auth |
 | `oauth2` / `openIdConnect` | Prompts for a token manually |
 
-Auth is stored in `~/.config/aurl/auth/` with `0600` permissions.
+Auth is stored in `~/.aurl/auth/` with `0600` permissions.
 
 For GraphQL APIs or APIs without `securitySchemes`, use `--header`:
 
@@ -252,7 +252,7 @@ aurl auth myapi --header "Authorization: Bearer new-token"
 aurl stores API specs and auth config locally:
 
 ```
-~/.config/aurl/
+~/.aurl/
 ├── apis/          # OpenAPI spec files
 ├── graphql/       # GraphQL introspection results
 └── auth/          # Auth headers per API (0600 permissions)
@@ -260,7 +260,7 @@ aurl stores API specs and auth config locally:
 
 When you run `aurl [name]`, it:
 
-1. Loads the spec from `~/.config/aurl/apis/` or `~/.config/aurl/graphql/`
+1. Loads the spec from `~/.aurl/apis/` or `~/.aurl/graphql/`
 2. Parses it to understand endpoints, parameters, types, and auth
 3. For `--help`: generates documentation from the spec
 4. For requests: validates against the spec, attaches auth headers, executes, and pretty-prints the response
