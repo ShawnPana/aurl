@@ -7,6 +7,7 @@ type AuthScheme struct {
 	Scheme      string // for http type: "bearer", "basic"
 	In          string // for apiKey type: "header", "query", "cookie"
 	HeaderName  string // for apiKey: the header/query param name
+	TokenURL    string // for oauth2: token endpoint URL
 	Description string // human-readable description for prompting
 }
 
@@ -66,6 +67,16 @@ func DetectAuth(spec *Spec) []AuthScheme {
 
 		case "oauth2":
 			scheme.Description = "OAuth2 (provide token manually)"
+			if flows, ok := schemeMap["flows"].(map[string]any); ok {
+				for _, flowName := range []string{"authorizationCode", "clientCredentials", "password"} {
+					if flow, ok := flows[flowName].(map[string]any); ok {
+						if tokenURL, ok := flow["tokenUrl"].(string); ok && tokenURL != "" {
+							scheme.TokenURL = tokenURL
+							break
+						}
+					}
+				}
+			}
 
 		case "openIdConnect":
 			scheme.Description = "OpenID Connect (provide token manually)"

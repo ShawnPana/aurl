@@ -8,10 +8,20 @@ import (
 	"strings"
 )
 
+type OAuth2Config struct {
+	ClientID     string `json:"client_id"`
+	ClientSecret string `json:"client_secret"`
+	RefreshToken string `json:"refresh_token"`
+	TokenURL     string `json:"token_url"`
+	AccessToken  string `json:"access_token,omitempty"`
+	ExpiresAt    int64  `json:"expires_at,omitempty"`
+}
+
 type AuthConfig struct {
 	BaseURLOverride string            `json:"base_url_override,omitempty"`
 	Headers         map[string]string `json:"headers,omitempty"`
 	QueryParams     map[string]string `json:"query_params,omitempty"`
+	OAuth2          *OAuth2Config     `json:"oauth2,omitempty"`
 }
 
 type APIEntry struct {

@@ -9,6 +9,7 @@ import (
 	"github.com/shawnpana/aurl/internal/client"
 	"github.com/shawnpana/aurl/internal/config"
 	"github.com/shawnpana/aurl/internal/graphql"
+	"github.com/shawnpana/aurl/internal/oauth2"
 	"github.com/spf13/cobra"
 )
 
@@ -85,6 +86,18 @@ func runGraphQL(name, configPath, authPath string, args []string) error {
 
 	// Load auth
 	auth, _ := config.LoadAuth(name)
+
+	// OAuth2 token refresh
+	if auth != nil && auth.OAuth2 != nil {
+		token, err := oauth2.EnsureValidToken(name, auth)
+		if err != nil {
+			return fmt.Errorf("OAuth2 token refresh failed: %w", err)
+		}
+		if auth.Headers == nil {
+			auth.Headers = make(map[string]string)
+		}
+		auth.Headers["Authorization"] = "Bearer " + token
+	}
 
 	// Build request
 	req := &client.Request{

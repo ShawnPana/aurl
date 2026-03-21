@@ -20,6 +20,11 @@ import (
 var addHeaders []string
 var addBaseURL string
 var addGraphQL bool
+var addOAuth2 bool
+var addClientID string
+var addClientSecret string
+var addRefreshToken string
+var addTokenURL string
 
 var addCmd = &cobra.Command{
 	Use:   "add [name] [spec or endpoint]",
@@ -33,6 +38,11 @@ func init() {
 	addCmd.Flags().StringArrayVar(&addHeaders, "header", nil, "Auth header (e.g., \"Authorization: Bearer token\")")
 	addCmd.Flags().StringVar(&addBaseURL, "base-url", "", "Override the base URL from the spec")
 	addCmd.Flags().BoolVar(&addGraphQL, "graphql", false, "Register a GraphQL endpoint instead of an OpenAPI spec")
+	addCmd.Flags().BoolVar(&addOAuth2, "oauth2", false, "Configure OAuth2 refresh token auth")
+	addCmd.Flags().StringVar(&addClientID, "client-id", "", "OAuth2 client ID")
+	addCmd.Flags().StringVar(&addClientSecret, "client-secret", "", "OAuth2 client secret")
+	addCmd.Flags().StringVar(&addRefreshToken, "refresh-token", "", "OAuth2 refresh token")
+	addCmd.Flags().StringVar(&addTokenURL, "token-url", "", "OAuth2 token endpoint URL")
 }
 
 func runAdd(cmd *cobra.Command, args []string) error {
@@ -116,6 +126,25 @@ func runAdd(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	// OAuth2 flag-based config
+	if addOAuth2 {
+		for _, h := range addHeaders {
+			parts := strings.SplitN(h, ":", 2)
+			if len(parts) == 2 && strings.EqualFold(strings.TrimSpace(parts[0]), "Authorization") {
+				return fmt.Errorf("cannot use --oauth2 with an Authorization header")
+			}
+		}
+		if addClientID == "" || addClientSecret == "" || addRefreshToken == "" || addTokenURL == "" {
+			return fmt.Errorf("--oauth2 requires --client-id, --client-secret, --refresh-token, and --token-url")
+		}
+		auth.OAuth2 = &config.OAuth2Config{
+			ClientID:     addClientID,
+			ClientSecret: addClientSecret,
+			RefreshToken: addRefreshToken,
+			TokenURL:     addTokenURL,
+		}
+	}
+
 	// Auto-detect auth from securitySchemes
 	schemes := openapi.DetectAuth(spec)
 	if len(schemes) > 0 {
@@ -132,7 +161,7 @@ func runAdd(cmd *cobra.Command, args []string) error {
 	}
 
 	// Save auth if anything was configured
-	if len(auth.Headers) > 0 || len(auth.QueryParams) > 0 || auth.BaseURLOverride != "" {
+	if len(auth.Headers) > 0 || len(auth.QueryParams) > 0 || auth.BaseURLOverride != "" || auth.OAuth2 != nil {
 		if err := config.SaveAuth(name, auth); err != nil {
 			return fmt.Errorf("failed to save auth config: %w", err)
 		}
@@ -181,10 +210,43 @@ func promptAndStoreAuth(reader *bufio.Reader, scheme openapi.AuthScheme, auth *c
 		}
 
 	case "oauth2", "openIdConnect":
-		fmt.Printf("Enter token for %s (or press Enter to skip): ", scheme.Name)
-		value := readLine(reader)
-		if value != "" {
-			auth.Headers["Authorization"] = "Bearer " + value
+		fmt.Printf("Configure OAuth2 refresh token for %s? [y/N]: ", scheme.Name)
+		answer := readLine(reader)
+		if strings.EqualFold(answer, "y") || strings.EqualFold(answer, "yes") {
+			fmt.Print("  Client ID: ")
+			clientID := readLine(reader)
+			fmt.Print("  Client secret: ")
+			clientSecret := readLine(reader)
+			fmt.Print("  Refresh token: ")
+			refreshToken := readLine(reader)
+
+			tokenURL := scheme.TokenURL
+			if tokenURL != "" {
+				fmt.Printf("  Token URL [%s]: ", tokenURL)
+				if v := readLine(reader); v != "" {
+					tokenURL = v
+				}
+			} else {
+				fmt.Print("  Token URL: ")
+				tokenURL = readLine(reader)
+			}
+
+			if clientID != "" && clientSecret != "" && refreshToken != "" && tokenURL != "" {
+				auth.OAuth2 = &config.OAuth2Config{
+					ClientID:     clientID,
+					ClientSecret: clientSecret,
+					RefreshToken: refreshToken,
+					TokenURL:     tokenURL,
+				}
+			} else {
+				fmt.Println("  Skipped — all fields are required for OAuth2.")
+			}
+		} else {
+			fmt.Printf("Enter token for %s (or press Enter to skip): ", scheme.Name)
+			value := readLine(reader)
+			if value != "" {
+				auth.Headers["Authorization"] = "Bearer " + value
+			}
 		}
 	}
 }

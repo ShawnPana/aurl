@@ -12,6 +12,11 @@ import (
 )
 
 var authHeaders []string
+var authOAuth2 bool
+var authClientID string
+var authClientSecret string
+var authRefreshToken string
+var authTokenURL string
 
 var authCmd = &cobra.Command{
 	Use:   "auth [name]",
@@ -22,6 +27,11 @@ var authCmd = &cobra.Command{
 
 func init() {
 	authCmd.Flags().StringArrayVar(&authHeaders, "header", nil, "Auth header (e.g., \"Authorization: Bearer token\")")
+	authCmd.Flags().BoolVar(&authOAuth2, "oauth2", false, "Configure OAuth2 refresh token auth")
+	authCmd.Flags().StringVar(&authClientID, "client-id", "", "OAuth2 client ID")
+	authCmd.Flags().StringVar(&authClientSecret, "client-secret", "", "OAuth2 client secret")
+	authCmd.Flags().StringVar(&authRefreshToken, "refresh-token", "", "OAuth2 refresh token")
+	authCmd.Flags().StringVar(&authTokenURL, "token-url", "", "OAuth2 token endpoint URL")
 }
 
 func runAuth(cmd *cobra.Command, args []string) error {
@@ -49,6 +59,25 @@ func runAuth(cmd *cobra.Command, args []string) error {
 		auth.BaseURLOverride = existingAuth.BaseURLOverride
 	}
 
+	// Conflict check: --oauth2 and Authorization header
+	if authOAuth2 {
+		for _, h := range authHeaders {
+			parts := strings.SplitN(h, ":", 2)
+			if len(parts) == 2 && strings.EqualFold(strings.TrimSpace(parts[0]), "Authorization") {
+				return fmt.Errorf("cannot use --oauth2 with an Authorization header")
+			}
+		}
+		if authClientID == "" || authClientSecret == "" || authRefreshToken == "" || authTokenURL == "" {
+			return fmt.Errorf("--oauth2 requires --client-id, --client-secret, --refresh-token, and --token-url")
+		}
+		auth.OAuth2 = &config.OAuth2Config{
+			ClientID:     authClientID,
+			ClientSecret: authClientSecret,
+			RefreshToken: authRefreshToken,
+			TokenURL:     authTokenURL,
+		}
+	}
+
 	// Add manual headers from flags
 	for _, h := range authHeaders {
 		parts := strings.SplitN(h, ":", 2)
@@ -57,8 +86,8 @@ func runAuth(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// If no manual headers, run interactive detection (OpenAPI only)
-	if len(authHeaders) == 0 {
+	// If no manual headers and no --oauth2, run interactive detection (OpenAPI only)
+	if len(authHeaders) == 0 && !authOAuth2 {
 		if isGraphQL {
 			fmt.Println("Use --header to set auth for GraphQL APIs.")
 			fmt.Printf("  Example: aurl auth %s --header \"Authorization: Bearer your-token\"\n", name)
